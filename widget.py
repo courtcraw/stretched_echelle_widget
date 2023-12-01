@@ -225,6 +225,9 @@ class Star():
             axes[0].axis(ext)
             axes[0].set_xlabel(r"Frequency mod {:0.2f} ($\mu$Hz)".format(slider_Dnu.val))
             
+            magnified_image1.set(array=z, extent=ext)
+            mfax.axis(ext)
+
             #also need to update the period echelle
             Theta_p = np.pi * (self.nu/slider_Dnu.val - (slider_d01.val + 0.5 + slider_eps_p.val)) 
             self.tau = 1/(self.nu*1e-6) + slider_DPi1.val/np.pi * np.arctan(slider_q.val / np.tan(Theta_p))
@@ -240,6 +243,9 @@ class Star():
 #             image2.set(array=z[::-1,:], extent=ext)
             axes[1].axis(ext)
 #             axes[1].invert_yaxis()
+
+            magnified_image2.set(array=z, extent=ext)
+            mpax.axis(ext)
             #end update the period echelle
 
             nu0s = [slider_eps_p.val*self.Dnu_init, (slider_eps_p.val+1)*slider_Dnu.val]
@@ -297,6 +303,10 @@ class Star():
             axes[1].axis(ext)
 #             axes[1].invert_yaxis()
             axes[1].set_xlabel('Stretched period mod {:.1f} (s)'.format(slider_DPi1.val))
+
+            magnified_image2.set(array=z, extent=ext)
+            mpax.axis(ext)
+
             fig.canvas.draw_idle()
             
             update_all_scatters()
@@ -389,6 +399,18 @@ class Star():
         radio_l_m = RadioButtons(rax, ('', '$\ell=0$', '$\ell=1, m=-1$', '$\ell=1, m=0$', '$\ell=1, m=1$', '$\ell=2$'))#, 'remove'))
          # this is called in on_key_press and on_click
         
+        ######################################
+        # Creating two magnifier panels for better clicking experience
+        ######################################
+        mfax = fig.add_axes([0.04, 0.10, 0.06, 0.10])
+        mpax = fig.add_axes([0.10, 0.10, 0.06, 0.10])
+
+        mfax.scatter(0.5, 0.5, marker='X', color='C0', transform=mfax.transAxes)
+        mpax.scatter(0.5, 0.5, marker='X', color='C0', transform=mpax.transAxes)
+
+        mfax.set_xticks([]); mfax.set_yticks([]);
+        mpax.set_xticks([]); mpax.set_yticks([]);
+         # this is called in onhover
 
         ######################################
         # Initializing the plot axes 
@@ -420,7 +442,17 @@ class Star():
         )
         
         axes[0].axis(ext)
+
+        magnified_image1 = mfax.imshow(
+            z, 
+            extent=ext, 
+            aspect='auto', 
+            interpolation='nearest', 
+            cmap=self.cmap
+        )
         
+        mfax.axis(ext)
+
         nu0s = [self.eps_p_init*self.Dnu_init, (self.eps_p_init+1)*self.Dnu_init]
         nu2s = [(self.eps_p_init-self.d02_init)*self.Dnu_init, (self.eps_p_init-self.d02_init+1)*self.Dnu_init, (self.eps_p_init-self.d02_init+2)*self.Dnu_init] 
         vlines0 = [axes[0].axvline(nu, color='b', linestyle='--', alpha=0.5) for nu in nu0s ]
@@ -461,7 +493,16 @@ class Star():
 #         print(self.p_echelle_y)
         
         axes[1].axis(ext)
-#         axes[1].invert_yaxis()
+
+        magnified_image2 = mpax.imshow(
+            z, 
+            extent=ext, 
+            aspect='auto', 
+            interpolation='nearest', 
+            cmap=self.cmap
+        )
+        
+        mpax.axis(ext)
         
         l0 = np.abs(self.nu.reshape(-1,1) - (self.ns+self.eps_p_init)*self.Dnu_init ).argmin(axis=0)
         l2 = np.abs(self.nu.reshape(-1,1) - (self.ns+self.eps_p_init-self.d02_init)*self.Dnu_init ).argmin(axis=0)
@@ -708,6 +749,46 @@ class Star():
 #         # 3 scatter plots corresponding to l-mode labels                                                          
 # #         self.create_label_scatters()
         cid = self.fig.canvas.mpl_connect('button_press_event', onclick) #this creates the scatter points 
+                                                                #and also updates the scatter plot      
+                                                                # 
+        ######################################
+        # magnify a small region upon mouse hover
+        ######################################
+
+        def onhover(event):
+            click_in_f_plot = event.inaxes == self.ax
+            click_in_p_plot = event.inaxes == self.pax
+
+            if click_in_f_plot:
+                x, y = event.xdata, event.ydata
+
+                # for line in self.ax.get_lines():
+                #     max.plot(line.get_xdata(), line.get_ydata(), label=line.get_label())
+
+                # Set the window for the zoomed region
+                mfax.set_xlim(x - 0.02*slider_Dnu.val, x + 0.02*slider_Dnu.val)
+                mfax.set_ylim(y - slider_Dnu.val, y + slider_Dnu.val)
+
+                # Redraw the figure
+                mfax.figure.canvas.draw_idle()
+            elif click_in_p_plot:
+                x, y = event.xdata, event.ydata
+
+                # for line in self.ax.get_lines():
+                #     max.plot(line.get_xdata(), line.get_ydata(), label=line.get_label())
+
+                # Set the window for the zoomed region
+                mpax.set_xlim(x - 0.02*slider_DPi1.val, x + 0.02*slider_DPi1.val)
+                mpax.set_ylim(y - slider_DPi1.val, y + slider_DPi1.val)
+
+                # Redraw the figure
+                mpax.figure.canvas.draw_idle()
+
+            else:
+                pass
+            return
+     
+        hid = self.fig.canvas.mpl_connect('motion_notify_event', onhover) #this creates the scatter points 
                                                                 #and also updates the scatter plot        
         plt.show()
 
